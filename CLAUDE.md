@@ -1,10 +1,10 @@
 # CLAUDE.md - AI Assistant Guide
 
-This document provides comprehensive guidance for AI assistants working with this repository.
+This document provides guidance for AI assistants working with this repository.
 
 ## Project Overview
 
-This is a **GitHub Actions Composite Actions** repository that demonstrates building, pushing, and testing Docker container images to GitHub Container Registry (ghcr.io). It includes a sample Python FastAPI application used for testing the CI/CD pipeline.
+This is a **library of reusable GitHub Actions** - a growing collection of composite actions designed to be shared and used across projects. The goal is to centralize useful, well-tested actions that solve common CI/CD challenges.
 
 **Repository:** `bricefotzo/composite-actions`
 **License:** GNU General Public License v3
@@ -14,208 +14,166 @@ This is a **GitHub Actions Composite Actions** repository that demonstrates buil
 ```
 composite-actions/
 ├── .github/
-│   ├── actions/
-│   │   └── build-and-push-images/
-│   │       └── action.yml           # Reusable composite action for Docker builds
+│   ├── actions/                     # Collection of reusable composite actions
+│   │   └── build-and-push-images/   # Docker build & push action
+│   │       └── action.yml
 │   └── workflows/
-│       └── main.yml                 # Main CI/CD workflow
-├── app/
-│   ├── __init__.py                  # Python package marker
-│   ├── main.py                      # FastAPI application with embedded tests
-│   ├── requirements.txt             # Python dependencies
-│   ├── Dockerfile                   # Multi-stage Docker build
-│   └── .dockerignore                # Docker build exclusions
-├── .gitignore                       # Git exclusions
-├── LICENSE                          # GNU GPL v3
+│       └── main.yml                 # Workflow for testing actions
+├── app/                             # Sample app for testing (not the main focus)
 └── CLAUDE.md                        # This file
 ```
 
-## Key Components
+## Actions Catalog
 
-### 1. Composite Action (`/.github/actions/build-and-push-images/action.yml`)
+### `build-and-push-images`
+**Path:** `.github/actions/build-and-push-images/action.yml`
+**Purpose:** Build and push Docker images to any container registry
 
-A reusable GitHub Action for building and pushing Docker images to container registries.
-
-**Inputs:**
 | Input | Required | Default | Description |
 |-------|----------|---------|-------------|
 | `context` | No | `.` | Docker build context path |
 | `image-tag` | Yes | - | Full image name and tag |
 | `path` | No | `Dockerfile` | Path to Dockerfile |
 | `registry` | No | `europe-west1-docker.pkg.dev` | Container registry URL |
-| `registry-username` | No | `_json_key` | Registry authentication username |
-| `registry-password` | Yes | - | Registry authentication password/token |
+| `registry-username` | No | `_json_key` | Registry auth username |
+| `registry-password` | Yes | - | Registry auth password/token |
 
-**Outputs:**
-| Output | Description |
-|--------|-------------|
-| `image_tags` | Tags of the built image |
+**Output:** `image_tags` - Tags of the built image
 
-**Internal Steps:**
-1. Setup Docker Buildx
-2. Login to container registry
-3. Extract metadata and tags
-4. Build and push with GitHub Actions cache
-5. Export image tags output
+---
 
-### 2. Main Workflow (`/.github/workflows/main.yml`)
+*More actions coming soon...*
 
-Two-stage CI/CD pipeline triggered on push events and manual dispatch.
+## How to Use These Actions
 
-**Jobs:**
-- `build` - Builds and pushes Docker image to ghcr.io
-- `test` - Pulls the image and runs pytest tests (depends on build)
+### From Another Repository
 
-**Required Secrets:**
-- `GH_TOKEN` - GitHub token for ghcr.io authentication
+Reference actions directly from this repo:
 
-### 3. Sample Application (`/app/`)
-
-A minimal FastAPI application for demonstration purposes.
-
-**Tech Stack:**
-- Python 3.10.10
-- FastAPI (web framework)
-- Uvicorn (ASGI server)
-- pytest + httpx (testing)
-
-**API Endpoint:**
-- `GET /` - Returns `{"msg": "Hello World"}`
-
-## Development Commands
-
-### Local Development
-
-```bash
-# Install dependencies
-pip install -r app/requirements.txt
-
-# Run the application locally
-cd app && uvicorn main:app --host=0.0.0.0 --port=8000
-
-# Run tests locally
-pytest app/main.py
+```yaml
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: bricefotzo/composite-actions/.github/actions/build-and-push-images@main
+        with:
+          image-tag: ghcr.io/myorg/myapp:latest
+          registry: ghcr.io
+          registry-username: ${{ github.actor }}
+          registry-password: ${{ secrets.GITHUB_TOKEN }}
 ```
 
-### Docker Development
+### Pin to a Specific Version
 
-```bash
-# Build Docker image
-docker build -t composite-actions-app ./app
+For stability, pin to a commit SHA or tag:
 
-# Run container
-docker run -p 8000:8000 composite-actions-app
-
-# Run tests in container
-docker run -v ./app:/app composite-actions-app pytest main.py
+```yaml
+- uses: bricefotzo/composite-actions/.github/actions/build-and-push-images@v1.0.0
 ```
 
-### Container Registry Operations
+## Adding New Actions
 
-```bash
-# Login to GitHub Container Registry
-echo "$GH_TOKEN" | docker login ghcr.io -u USERNAME --password-stdin
+### Directory Structure
 
-# Push image
-docker push ghcr.io/bricefotzo/composite-actions:tag
+Each action lives in its own directory under `.github/actions/`:
+
+```
+.github/actions/
+├── build-and-push-images/
+│   └── action.yml
+├── deploy-to-kubernetes/      # Example future action
+│   └── action.yml
+├── run-tests-with-coverage/   # Example future action
+│   └── action.yml
+└── notify-slack/              # Example future action
+    └── action.yml
 ```
 
-## Code Conventions
+### Action Template
 
-### Python
+Create a new action at `.github/actions/<action-name>/action.yml`:
 
-- **Framework:** FastAPI for web applications
-- **Testing:** pytest with inline tests in the same file for simple apps
-- **Test pattern:** Use `TestClient` from FastAPI for HTTP testing
-- **Dependencies:** Listed in `requirements.txt`
+```yaml
+name: 'Action Name'
+description: 'What this action does'
 
-### Docker
+inputs:
+  required-input:
+    description: 'Description of this input'
+    required: true
+  optional-input:
+    description: 'Description with default'
+    required: false
+    default: 'default-value'
 
-- **Base image:** `python:3.10.10-slim` for Python applications
-- **Security:** Always use non-root users (see `appuser` in Dockerfile)
-- **Optimization:** Use cache mounts for pip and bind mounts for requirements
-- **Port:** Applications expose port 8000 by default
+outputs:
+  result:
+    description: 'What this output contains'
+    value: ${{ steps.step-id.outputs.result }}
 
-### GitHub Actions
+runs:
+  using: 'composite'
+  steps:
+    - name: Step description
+      shell: bash
+      run: |
+        echo "Action logic here"
+        echo "result=value" >> $GITHUB_OUTPUT
+```
 
-- **Composite actions:** Store in `.github/actions/<action-name>/action.yml`
-- **Workflows:** Store in `.github/workflows/`
-- **Caching:** Use GitHub Actions cache for Docker layers
-- **Authentication:** Use `--password-stdin` for secure registry login
+### Best Practices for New Actions
 
-## Workflow Patterns
+1. **Clear naming:** Use descriptive kebab-case names (`deploy-to-s3`, `run-tests`)
+2. **Document inputs/outputs:** Every input and output needs a description
+3. **Sensible defaults:** Provide defaults where possible to reduce required config
+4. **Idempotent:** Actions should be safe to run multiple times
+5. **Minimal permissions:** Request only necessary permissions
+6. **Error handling:** Fail fast with clear error messages
+7. **Caching:** Use GitHub Actions cache when beneficial
 
-### Adding a New Composite Action
+### Testing New Actions
 
-1. Create directory: `.github/actions/<action-name>/`
-2. Create `action.yml` with:
-   - `name` and `description`
-   - `inputs` with required/optional parameters
-   - `outputs` for return values
-   - `runs.using: composite` with steps
-
-### Modifying the Application
-
-1. Update code in `app/main.py`
-2. Add tests in the same file using `test_*` naming
-3. Update `requirements.txt` if adding dependencies
-4. Test locally with `pytest app/main.py`
-5. Commit and push to trigger CI/CD
-
-### Testing Workflow Changes
-
-1. Make changes to workflow files
-2. Push to a branch to trigger the workflow
-3. Check GitHub Actions tab for results
-4. Debug using workflow run logs
-
-## Important File Paths
-
-| Purpose | Path |
-|---------|------|
-| Main workflow | `.github/workflows/main.yml` |
-| Build composite action | `.github/actions/build-and-push-images/action.yml` |
-| Application code | `app/main.py` |
-| Application Dockerfile | `app/Dockerfile` |
-| Python dependencies | `app/requirements.txt` |
+1. Create a test workflow in `.github/workflows/` that exercises the action
+2. Use the `/app` sample application or create minimal test fixtures
+3. Test on a feature branch before merging
 
 ## Common Tasks for AI Assistants
 
-### When modifying the FastAPI application:
-1. Read `app/main.py` first
-2. Update the endpoint logic
-3. Add/update corresponding test functions
-4. Verify with `pytest app/main.py`
+### When adding a new action:
+1. Create directory: `.github/actions/<action-name>/`
+2. Create `action.yml` following the template above
+3. Add comprehensive input/output documentation
+4. Create or update a test workflow
+5. Update this CLAUDE.md to add the action to the catalog
 
-### When modifying the composite action:
-1. Read `.github/actions/build-and-push-images/action.yml`
-2. Update inputs/outputs as needed
-3. Modify steps while maintaining Docker action versions
-4. Update the main workflow if input/output signatures change
+### When modifying an existing action:
+1. Read the current `action.yml` first
+2. Maintain backward compatibility when possible
+3. Update input/output documentation if signatures change
+4. Test changes don't break existing workflows
 
-### When modifying the CI/CD workflow:
-1. Read `.github/workflows/main.yml`
-2. Understand job dependencies (`needs` field)
-3. Use proper GitHub Actions context variables
-4. Test by pushing to a feature branch
+### When a user wants to add a specific action:
+1. Understand what problem the action solves
+2. Research existing GitHub Actions that could be composed
+3. Design clear inputs/outputs
+4. Implement with error handling
+5. Add to the catalog in this file
 
-### When adding new dependencies:
-1. Add to `app/requirements.txt`
-2. Rebuild Docker image to verify installation
-3. Update Dockerfile if special installation steps needed
+## Ideas for Future Actions
 
-## Troubleshooting
+Common CI/CD tasks that could become actions:
+- Kubernetes deployment
+- Slack/Discord notifications
+- Test coverage reporting
+- Security scanning
+- Release automation
+- Environment provisioning
+- Database migrations
+- Cache management
+- Artifact publishing
 
-### Common Issues
+## Resources
 
-1. **Docker build context errors:** Ensure `context` points to directory containing Dockerfile
-2. **Registry authentication failures:** Use `--password-stdin` for secure token handling
-3. **Volume mount issues:** Use `-v ./local:/container` syntax with proper paths
-4. **Test failures in CI:** Ensure working directory is correct (`/app` in container)
-
-### Debugging Tips
-
-- Add `ls` commands in workflows to verify file locations
-- Use `docker run ... ls /app` to check container file structure
-- Check GitHub Actions logs for detailed error messages
-- Verify secrets are properly configured in repository settings
+- [Creating composite actions](https://docs.github.com/en/actions/creating-actions/creating-a-composite-action)
+- [GitHub Actions syntax](https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions)
+- [Actions marketplace](https://github.com/marketplace?type=actions) for inspiration
